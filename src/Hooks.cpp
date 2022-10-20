@@ -11,6 +11,7 @@ namespace {
     class PlayerCharacterEx : public RE::PlayerCharacter {
     public:
         void TryToSteal(RE::TESObjectREFR* a_fromRefr, RE::TESForm* a_item, RE::ExtraDataList* a_extraList) {
+            auto currentProcess = GetActorRuntimeData().currentProcess;
             if (!a_fromRefr || !currentProcess || !currentProcess->high) {
                 return;
             }
@@ -92,7 +93,7 @@ namespace {
         static void InstallHooks() {
             {
                 REL::Offset<AddObjectToContainer_t**> vFunc(RE::Offset::PlayerCharacter::Vtbl + (0x8 * 0x5A));
-                AddObjectToContainer = *vFunc;
+                _AddObjectToContainer = *vFunc;
                 SafeWrite64(vFunc.GetAddress(), unrestricted_cast<std::uintptr_t>(AddObjectToContainer_f));
             }
 
