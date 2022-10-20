@@ -1,56 +1,51 @@
-﻿#include "Hooks.h"
+#include <stddef.h>
+
+#include "Hooks.h"
 #include "Settings.h"
-#include "version.h"
 
-#include "SKSE/API.h"
+using namespace RE::BSScript;
+using namespace SKSE;
+using namespace SKSE::log;
+using namespace SKSE::stl;
+
+namespace {
+    void InitializeLogging() {
+        auto path = log_directory();
+        if (!path) {
+            report_and_fail("Unable to lookup SKSE logs directory.");
+        }
+        *path /= PluginDeclaration::GetSingleton()->GetName();
+        *path += L".log";
+
+        std::shared_ptr<spdlog::logger> log;
+        if (IsDebuggerPresent()) {
+            log = std::make_shared<spdlog::logger>(
+                "Global", std::make_shared<spdlog::sinks::msvc_sink_mt>());
+        } else {
+            log = std::make_shared<spdlog::logger>(
+                "Global", std::make_shared<spdlog::sinks::basic_file_sink_mt>(path->string(), true));
+        }
+        log->set_level(spdlog::level::info);
+        log->flush_on(spdlog::level::info);
+
+        spdlog::set_default_logger(std::move(log));
+        spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%n] [%l] [%t] [%s:%#] %v");
+    }
+}
+
+SKSEPluginLoad(const LoadInterface* skse) {
+    InitializeLogging();
+
+    auto* plugin = PluginDeclaration::GetSingleton();
+    auto version = plugin->GetVersion();
+    log::info("{} {} is loading...", plugin->GetName(), version);
 
 
-extern "C" {
-	bool SKSEPlugin_Query(const SKSE::QueryInterface* a_skse, SKSE::PluginInfo* a_info)
-	{
-		SKSE::Logger::OpenRelative(FOLDERID_Documents, L"\\My Games\\Skyrim Special Edition\\SKSE\\MumsTheWord.log");
-		SKSE::Logger::SetPrintLevel(SKSE::Logger::Level::kDebugMessage);
-		SKSE::Logger::SetFlushLevel(SKSE::Logger::Level::kDebugMessage);
-		SKSE::Logger::UseLogStamp(true);
+    Init(skse);
 
-		_MESSAGE("MumsTheWord v%s", MUMW_VERSION_VERSTRING);
+    Settings::load();
+    InstallHooks();
 
-		a_info->infoVersion = SKSE::PluginInfo::kVersion;
-		a_info->name = "MumsTheWord";
-		a_info->version = MUMW_VERSION_MAJOR;
-
-		if (a_skse->IsEditor()) {
-			_FATALERROR("Loaded in editor, marking as incompatible!\n");
-			return false;
-		}
-
-		switch (a_skse->RuntimeVersion()) {
-		case RUNTIME_VERSION_1_5_97:
-			break;
-		default:
-			_FATALERROR("Unsupported runtime version %s!\n", a_skse->UnmangledRuntimeVersion().c_str());
-			return false;
-		}
-
-		return true;
-	}
-
-
-	bool SKSEPlugin_Load(const SKSE::LoadInterface* a_skse)
-	{
-		_MESSAGE("MumsTheWord loaded");
-
-		if (!SKSE::Init(a_skse)) {
-			return false;
-		}
-
-		if (!Settings::LoadSettings()) {
-			return false;
-		}
-
-		InstallHooks();
-		_MESSAGE("Hooks installed");
-
-		return true;
-	}
-};
+    log::info("{} has finished loading.", plugin->GetName());
+    return true;
+}
