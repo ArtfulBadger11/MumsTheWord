@@ -25,5 +25,5 @@ public:
     }
 
     static inline bSetting useThreshold{"General"s, "useThreshold"s, false};
-    static inline iSetting costThreshold{"General"s, "costThreshild"s, 500};
+    static inline iSetting costThreshold{"General"s, "costThreshold"s, 500};
 };

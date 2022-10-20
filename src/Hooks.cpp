@@ -5,6 +5,7 @@
 #include "RE/Skyrim.h"
 #include "SKSE/API.h"
 #include "Settings.h"
+#include "RE/E/ExtraDataList.h"
 
 namespace {
     class PlayerCharacterEx : public RE::PlayerCharacter {
@@ -60,7 +61,7 @@ namespace {
                     }
                 }
 
-                if (!detected) {
+                if (!detected && a_extraList) {
                     auto xOwnership = a_extraList->GetByType<RE::ExtraOwnership>();
                     if (xOwnership) {
                         xOwnership->owner = this;
@@ -82,7 +83,7 @@ namespace {
         static void thunk(PlayerCharacterEx* player, RE::TESBoundObject* a_object, RE::ExtraDataList* a_extraList, int32_t a_count,
                           RE::TESObjectREFR* a_fromRefr) {
             if (!a_extraList) {
-                a_extraList = new RE::ExtraDataList();
+                //a_extraList = new RE::ExtraDataList();
             }
 
             player->TryToSteal(a_fromRefr, a_object, a_extraList);
