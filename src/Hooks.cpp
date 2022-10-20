@@ -5,7 +5,6 @@
 #include "RE/Skyrim.h"
 #include "SKSE/API.h"
 #include "Settings.h"
-#include "skse64_common/SafeWrite.h"
 
 namespace {
     class PlayerCharacterEx : public RE::PlayerCharacter {
@@ -72,48 +71,53 @@ namespace {
                 }
             }
         }
+    };
 
-        void Hook_AddObjectToContainer(RE::TESBoundObject* a_object, RE::ExtraDataList* a_extraList, int32_t a_count,
-                                       RE::TESObjectREFR* a_fromRefr)  // 5A
-        {
+    template <class F, class T>
+    static void write_vfunc() {
+        REL::Relocation<std::uintptr_t> vtbl{F::VTABLE[0]};
+        T::func = vtbl.write_vfunc(T::idx, T::thunk);
+    }
+    struct AddObjectToContainerHook {
+        static void thunk(PlayerCharacterEx* player, RE::TESBoundObject* a_object, RE::ExtraDataList* a_extraList, int32_t a_count,
+                          RE::TESObjectREFR* a_fromRefr) {
             if (!a_extraList) {
                 a_extraList = new RE::ExtraDataList();
             }
 
-            TryToSteal(a_fromRefr, a_object, a_extraList);
-            AddObjectToContainer(a_object, a_extraList, a_count, a_fromRefr);
+            player->TryToSteal(a_fromRefr, a_object, a_extraList);
+            func(player, a_object, a_extraList, a_count, a_fromRefr);
         }
 
-        void Hook_PickUpObject(TESObjectREFR* a_item, uint32_t a_count, bool a_arg3, bool a_playSound)  // CC
-        {
-            TryToSteal(a_item, a_item->GetBaseObject(), &a_item->extraList);
-            PickUpObject(a_item, a_count, a_arg3, a_playSound);
+        static inline REL::Relocation<decltype(thunk)> func;
+
+        static inline int idx = 0x5A;
+
+        // Install our hook at the specified address
+        static inline void Install() {
+            write_vfunc<RE::PlayerCharacter, AddObjectToContainerHook>();
         }
-
-        static void InstallHooks() {
-            {
-                REL::Offset<AddObjectToContainer_t**> vFunc(RE::Offset::PlayerCharacter::Vtbl + (0x8 * 0x5A));
-                _AddObjectToContainer = *vFunc;
-                SafeWrite64(vFunc.GetAddress(), unrestricted_cast<std::uintptr_t>(AddObjectToContainer_f));
-            }
-
-            {
-                REL::Offset<PickUpObject_t**> vFunc(RE::Offset::PlayerCharacter::Vtbl + (0x8 * 0xCC));
-                _PickUpObject = *vFunc;
-                SafeWrite64(vFunc.GetAddress(), unrestricted_cast<std::uintptr_t>(PickUpObject_f));
-            }
-        }
-
-        static inline auto AddObjectToContainer_f = &PlayerCharacterEx::Hook_AddObjectToContainer;
-        using AddObjectToContainer_t = function_type_t<decltype(AddObjectToContainer_f)>;
-        inline static AddObjectToContainer_t* _AddObjectToContainer = 0;
-
-        static inline auto PickUpObject_f = &PlayerCharacterEx::Hook_PickUpObject;
-        using PickUpObject_t = function_type_t<decltype(PickUpObject_f)>;
-        inline static PickUpObject_t* _PickUpObject = 0;
     };
+
+    struct PickUpObjectHook {
+        static void thunk(PlayerCharacterEx* player, RE::TESObjectREFR* a_item, uint32_t a_count, bool a_arg3, bool a_playSound) {
+            player->TryToSteal(a_item, a_item->GetBaseObject(), &a_item->extraList);
+            func(player, a_item, a_count, a_arg3, a_playSound);
+        }
+
+        static inline REL::Relocation<decltype(thunk)> func;
+
+        static inline int idx = 0xCC;
+
+        // Install our hook at the specified address
+        static inline void Install() {
+            write_vfunc<RE::PlayerCharacter, PickUpObjectHook>();
+        }
+    };
+    
 }  // namespace
 
 void InstallHooks() {
-    PlayerCharacterEx::InstallHooks();
+    AddObjectToContainerHook::Install();
+    PickUpObjectHook::Install();
 }
