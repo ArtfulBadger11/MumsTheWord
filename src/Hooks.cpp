@@ -108,7 +108,7 @@ namespace {
 
         static inline REL::Relocation<decltype(thunk)> func;
 
-        static inline int idx = 0xCC;
+        static inline int idx = REL::Module::GetRuntime() != REL::Module::Runtime::VR ? 0xCC : 0xCE;
 
         // Install our hook at the specified address
         static inline void Install() {
